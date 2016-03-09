@@ -25,6 +25,15 @@ const (
 	TypeSet    = langs.ThriftTypeSet
 )
 
+const (
+	TypeConst     = "const"
+	TypeTypeDef   = "typedef"
+	TypeEnum      = "enum"
+	TypeStruct    = "struct"
+	TypeService   = "service"
+	TypeException = "exception"
+)
+
 var typeStrs = map[string]string{
 	TypeBool:   "bool",
 	TypeByte:   "byte",
@@ -34,6 +43,50 @@ var typeStrs = map[string]string{
 	TypeDouble: "float64",
 	TypeBinary: "[]byte",
 	TypeString: "string",
+}
+
+func getDefinedTypes(parsedThrift map[string]*parser.Thrift) map[string]map[string]string {
+	result := map[string]map[string]string{}
+
+	for filename, parsed := range parsedThrift {
+		typeDefs := map[string]string{}
+
+		for constName, _ := range parsed.Constants {
+			setDefinedTypes(typeDefs, TypeConst, constName)
+		}
+
+		for typeDefName, _ := range parsed.Typedefs {
+			setDefinedTypes(typeDefs, TypeTypeDef, typeDefName)
+		}
+
+		for enumName, _ := range parsed.Enums {
+			setDefinedTypes(typeDefs, TypeEnum, enumName)
+		}
+
+		for structName, _ := range parsed.Structs {
+			setDefinedTypes(typeDefs, TypeStruct, structName)
+		}
+
+		for serviceName, _ := range parsed.Services {
+			setDefinedTypes(typeDefs, TypeService, serviceName)
+		}
+
+		for exceptionName, _ := range parsed.Exceptions {
+			setDefinedTypes(typeDefs, TypeException, exceptionName)
+		}
+
+		result[filename] = typeDefs
+	}
+
+	return result
+}
+
+func setDefinedTypes(typeDefs map[string]string, typ, name string) {
+	if _, ok := typeDefs[name]; ok {
+		panicWithErr("duplicate %s name %s", typ, name)
+	} else {
+		typeDefs[name] = typ
+	}
 }
 
 func getNamespace(namespaces map[string]string) string {
@@ -156,7 +209,7 @@ func (this *TplUtils) GenTypeString(fieldName string, typ, parent *parser.Type, 
 
 		// TODO check if is Enum, Const, TypeDef etc.
 		name := typ.Name
-		if dotIdx := strings.Index(name, "."); dotIdx != -1 {
+		if dotIdx := strings.LastIndex(name, "."); dotIdx != -1 {
 			name = typ.Name[:dotIdx+1] + this.UpperHead(typ.Name[dotIdx+1:])
 		}
 
